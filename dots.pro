@@ -7,5 +7,9 @@ CONFIG -= app_bundle
 
 TEMPLATE = app
 
-SOURCES += main.cpp
+SOURCES += main.cpp \
+    DotsSimplifier.cpp
+
+HEADERS += \
+    DotsSimplifier.h
 

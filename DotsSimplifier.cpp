@@ -5,9 +5,115 @@
  */
 
 #include "DotsSimplifier.h"
+#include"Helper.h"
+#include"DotsException.h"
+#include<QFile>
+#include<QDateTime>
+#include<QVector>
+#include<QDebug>
+#include<QtMath>
+
+const QString DotsSimplifier::MOPSI_DATETIME_FORMAT("yyyy-MM-ddHH:mm:ss");
 
 DotsSimplifier::DotsSimplifier(QObject *parent) : QObject(parent)
 {
+    this->lssdTh = 1000.0;
+}
 
+void DotsSimplifier::setParameters(double lssdTh)
+{
+    this->lssdTh = lssdTh;
+}
+
+void DotsSimplifier::parseMOPSI(QString fileName, QVector<double> &x, QVector<double> &y, QVector<double> &t)
+{
+    // Check if file name is null or empty.
+    Helper::checkNotNullNorEmpty("fileName", fileName);
+    try
+    {
+        // Open file in TEXT mode.
+        QFile file(fileName.trimmed());
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            DotsException(QString("Open file %1 error.").arg(fileName)).raise();
+
+        QVector<double> longitude, latitude;
+        x.clear();
+        y.clear();
+        t.clear();
+        while(!file.atEnd())
+        {
+            // Read the file line by line.
+            QByteArray line = file.readLine().trimmed();
+            if(line.isEmpty())
+                continue;
+            auto parts = line.split(' ');
+
+            // In case where the line is malformed.
+            if(parts.count() != 4)
+                DotsException("Malformed line found.").raise();
+
+            // Store the parsed data without cleaning it.
+            latitude.append(parts[0].toDouble());
+            longitude.append(parts[1].toDouble());
+            t.append((double)QDateTime::fromString(parts[2]+parts[3], MOPSI_DATETIME_FORMAT).toTime_t());
+        }
+        // Do mercator projection on the parsed longitude/latitude.
+        mercatorProject(longitude, latitude, x, y);
+    }
+    catch (DotsException &e)
+    {
+        e.raise();
+    }
+    catch (QException &)
+    {
+        DotsException("Error occured when parsing trajectory file.").raise();
+    }
+}
+
+// There's problem with points whose latitude nears pi/2.
+void DotsSimplifier::mercatorProject(QVector<double> &longitude, QVector<double> &latitude, QVector<double> &x,
+                                     QVector<double> &y)
+{
+    // Check if input position array is of the same size.
+    Helper::checkIntEqual(longitude.count(), latitude.count());
+    try
+    {
+        // Clear output variables.
+        x.clear();
+        y.clear();
+        int pointCount = longitude.count();
+        if(pointCount<=0)
+        {
+            return;
+        }
+
+        // Calculate the average scale factor.
+        const double earthRadius = 6378100.0;
+        double rx, ry, sf=0;// Longitude/latitude in radian.
+        for(int i=0; i<pointCount; ++i)
+        {
+            sf += 1.0/qCos(qDegreesToRadians(latitude[i]));
+        }
+        sf/=pointCount;
+
+        // Do projection.
+        for(int i=0; i<pointCount; ++i)
+        {
+            rx = qDegreesToRadians(longitude[i]);
+            ry = qDegreesToRadians(latitude[i]);
+            ry = qLn(qFabs(qTan(ry)+1.0/qCos(ry)));
+
+            x.append(rx*earthRadius/sf);
+            y.append(ry*earthRadius/sf);
+        }
+    }
+    catch(DotsException &e)
+    {
+        e.raise();
+    }
+    catch (QException &)
+    {
+        DotsException("Error occured when doing mercator projection.").raise();
+    }
 }
 

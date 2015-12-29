@@ -14,15 +14,60 @@
 #include<QtMath>
 
 const QString DotsSimplifier::MOPSI_DATETIME_FORMAT("yyyy-MM-ddHH:mm:ss");
+const double DotsSimplifier::SCALE_FACTOR_PRECISION = 1e-4;
 
 DotsSimplifier::DotsSimplifier(QObject *parent) : QObject(parent)
 {
-    this->lssdTh = 1000.0;
+    this->lssdTh = 10000.0;
+    this->lssdUpperBound = this->lssdTh*2.0;
+    resetInternalData();
 }
 
-void DotsSimplifier::setParameters(double lssdTh)
+void DotsSimplifier::setParameters(double lssdTh, double k)
 {
     this->lssdTh = lssdTh;
+    this->lssdUpperBound = lssdTh*k;
+}
+
+void DotsSimplifier::resetInternalData()
+{
+    // Clear data points and internal statistics.
+    this->ptx.clear();
+    this->pty.clear();
+    this->ptt.clear();
+    this->xSum.clear();
+    this->ySum.clear();
+    this->tSum.clear();
+    this->x2Sum.clear();
+    this->y2Sum.clear();
+    this->t2Sum.clear();
+    this->xtSum.clear();
+    this->ytSum.clear();
+
+    // Clear structures for DAG construction and optimization.
+    this->vK.clear();
+    this->vL.clear();
+    this->vD.clear();
+    this->vE.clear();
+    this->issed.clear();
+    this->parents.clear();
+    this->terminated.clear();
+    this->numTerminated = 0;
+    this->simplifiedIndex.clear();
+
+    // Input/output queue position.
+    currentLayer = -1;
+    inputCount = 0;
+    outputCount = 0;
+
+    // Finish flag.
+    finished = false;
+}
+
+void DotsSimplifier::finish()
+{
+    finished = true;
+    //DotsException("finish() not implemented yet").raise();
 }
 
 void DotsSimplifier::parseMOPSI(QString fileName, QVector<double> &x, QVector<double> &y, QVector<double> &t)
@@ -50,7 +95,9 @@ void DotsSimplifier::parseMOPSI(QString fileName, QVector<double> &x, QVector<do
 
             // In case where the line is malformed.
             if(parts.count() != 4)
+            {
                 DotsException("Malformed line found.").raise();
+            }
 
             // Store the parsed data without cleaning it.
             latitude.append(parts[0].toDouble());
@@ -59,6 +106,11 @@ void DotsSimplifier::parseMOPSI(QString fileName, QVector<double> &x, QVector<do
         }
         // Do mercator projection on the parsed longitude/latitude.
         mercatorProject(longitude, latitude, x, y);
+
+        // Normalize data by first value of each array.
+        normalizeData(x, false);
+        normalizeData(y, false);
+        normalizeData(t, false);
     }
     catch (DotsException &e)
     {
@@ -70,7 +122,7 @@ void DotsSimplifier::parseMOPSI(QString fileName, QVector<double> &x, QVector<do
     }
 }
 
-// There's problem with points whose latitude nears pi/2.
+// Problem with points whose latitude nears pi/2 was fixed.
 void DotsSimplifier::mercatorProject(QVector<double> &longitude, QVector<double> &latitude, QVector<double> &x,
                                      QVector<double> &y)
 {
@@ -81,6 +133,9 @@ void DotsSimplifier::mercatorProject(QVector<double> &longitude, QVector<double>
         // Clear output variables.
         x.clear();
         y.clear();
+        // Define the constant MERCATOR projection limits.
+        const double MERCATOR_LATITUDE_LB = 2.5*2.0-M_PI/2;
+        const double MERCATOR_LATITUDE_UB = 87.5*2.0-M_PI/2;
         int pointCount = longitude.count();
         if(pointCount<=0)
         {
@@ -95,12 +150,13 @@ void DotsSimplifier::mercatorProject(QVector<double> &longitude, QVector<double>
             sf += 1.0/qCos(qDegreesToRadians(latitude[i]));
         }
         sf/=pointCount;
+        sf = qRound(sf/SCALE_FACTOR_PRECISION)*SCALE_FACTOR_PRECISION;
 
         // Do projection.
         for(int i=0; i<pointCount; ++i)
         {
             rx = qDegreesToRadians(longitude[i]);
-            ry = qDegreesToRadians(latitude[i]);
+            ry = qDegreesToRadians(Helper::limitVal(latitude[i], MERCATOR_LATITUDE_LB, MERCATOR_LATITUDE_UB));
             ry = qLn(qFabs(qTan(ry)+1.0/qCos(ry)));
 
             x.append(rx*earthRadius/sf);
@@ -116,4 +172,32 @@ void DotsSimplifier::mercatorProject(QVector<double> &longitude, QVector<double>
         DotsException("Error occured when doing mercator projection.").raise();
     }
 }
+
+void DotsSimplifier::normalizeData(QVector<double> &x, bool byMean)
+{
+    // Check if array is empty.
+    if (x.empty())
+        return;
+
+    // Get the calibrate value.
+    double cal = 0;
+    if (byMean)
+    {
+        foreach (double px, x) {
+            cal += px;
+        }
+        cal /= x.count();
+    }
+    else
+    {
+        cal = x[0];
+    }
+
+    // Update data.
+    for (int i=0; i<x.count(); ++i)
+    {
+        x[i] = x[i]-cal;
+    }
+}
+
 

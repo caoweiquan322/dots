@@ -39,6 +39,15 @@ public:
      */
     static void checkIntEqual(int a, int b);
 
+    static inline double limitVal(double val, double lb, double ub)
+    {
+        if (val<lb)
+            val = lb;
+        if (val>ub)
+            val = ub;
+        return val;
+    }
+
 signals:
 
 public slots:

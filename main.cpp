@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
         QString dataFileName = "./r6.txt";
         DotsSimplifier simplifier;
         // Set the simplification tolerance to 3km.
-        simplifier.setParameters(3000.0);
+        simplifier.setParameters(3000.0, 2.0);
         QVector<double> x,y,t;
         QElapsedTimer timer;
         // Parse the MOPSI data file as trajectory x/y/t.
@@ -52,8 +52,17 @@ int main(int argc, char *argv[])
                 ot.append(pt);
             }
         }
+        simplifier.finish();
+        while (simplifier.readOutputData(px, py, pt)) {
+            ox.append(px);
+            oy.append(py);
+            ot.append(pt);
+        }
         qDebug("Original curve size: %d, output curve size: %d, time: %d ms", x.count(), ox.count(),
                timer.elapsed());
+        foreach (int idx, simplifier.simplifiedIndex) {
+            qDebug("%d", idx);
+        }
         qDebug("\nPress any key to continue...");
     }
     catch (DotsException &e)

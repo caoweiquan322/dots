@@ -18,45 +18,46 @@ const double DotsSimplifier::SCALE_FACTOR_PRECISION = 1e-4;
 
 DotsSimplifier::DotsSimplifier(QObject *parent) : QObject(parent)
 {
-    this->lssdTh = 10000.0;
-    this->lssdUpperBound = this->lssdTh*2.0;
+    lssdTh = 10000.0;
+    lssdUpperBound = lssdTh*2.0;
     resetInternalData();
 }
 
 void DotsSimplifier::setParameters(double lssdTh, double k)
 {
     this->lssdTh = lssdTh;
-    this->lssdUpperBound = lssdTh*k;
+    lssdUpperBound = lssdTh*k;
 }
 
 void DotsSimplifier::resetInternalData()
 {
     // Clear data points and internal statistics.
-    this->ptx.clear();
-    this->pty.clear();
-    this->ptt.clear();
-    this->xSum.clear();
-    this->ySum.clear();
-    this->tSum.clear();
-    this->x2Sum.clear();
-    this->y2Sum.clear();
-    this->t2Sum.clear();
-    this->xtSum.clear();
-    this->ytSum.clear();
+    ptx.clear();
+    pty.clear();
+    ptt.clear();
+    xSum.clear();
+    ySum.clear();
+    tSum.clear();
+    x2Sum.clear();
+    y2Sum.clear();
+    t2Sum.clear();
+    xtSum.clear();
+    ytSum.clear();
 
     // Clear structures for DAG construction and optimization.
-    this->vK.clear();
-    this->vL.clear();
-    this->vD.clear();
-    this->vE.clear();
-    this->issed.clear();
-    this->parents.clear();
-    this->terminated.clear();
-    this->numTerminated = 0;
-    this->simplifiedIndex.clear();
+    vK.clear();
+    vL.clear();
+    pathK.clear();
+//    vD.clear();
+//    vE.clear();
+    issed.clear();
+    parents.clear();
+    terminated.clear();
+    numTerminated = 0;
+    simplifiedIndex.clear();
 
     // Input/output queue position.
-    currentLayer = -1;
+//    currentLayer = -1;
     inputCount = 0;
     outputCount = 0;
 
@@ -66,8 +67,11 @@ void DotsSimplifier::resetInternalData()
 
 void DotsSimplifier::finish()
 {
-    finished = true;
-    //DotsException("finish() not implemented yet").raise();
+    if (!finished)
+    {
+        finished = true;
+        directedAcyclicGraphSearch();
+    }
 }
 
 void DotsSimplifier::parseMOPSI(QString fileName, QVector<double> &x, QVector<double> &y, QVector<double> &t)

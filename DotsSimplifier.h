@@ -59,27 +59,36 @@ public:
      */
     inline void feedData(double x, double y, double t)
     {
-//        qDebug("Feed %d", this->ptx.count());
+        if (finished)
+            DotsException("Feeding data is NOT allowed after the simplifier finished. "\
+                          "Suggest call resetInternalData() first.").raise();
+
+//        qDebug("Feed %d", ptx.count());
         // Store data.
-        this->ptx.append(x);
-        this->pty.append(y);
-        this->ptt.append(t);
+        ptx.append(x);
+        pty.append(y);
+        ptt.append(t);
         // Update statistics.
-        if (this->xSum.empty())
+        if (xSum.empty())
         {
-            this->xSum.append(x);
-            this->ySum.append(y);
-            this->tSum.append(t);
-            this->x2Sum.append(x*x);
-            this->y2Sum.append(y*y);
-            this->t2Sum.append(t*t);
-            this->xtSum.append(x*t);
-            this->ytSum.append(y*t);
+            xSum.append(x);
+            ySum.append(y);
+            tSum.append(t);
+            x2Sum.append(x*x);
+            y2Sum.append(y*y);
+            t2Sum.append(t*t);
+            xtSum.append(x*t);
+            ytSum.append(y*t);
 
             // Setup the initial vK set {0}.
-            this->vK.append(0);
-            this->terminated.append(false);
-            this->numTerminated = 0;
+            vK.append(0);
+            terminated.append(false);
+            numTerminated = 0;
+
+            // Setup the following-path for viterbi decoding.
+            QVector<int> path;
+            path.append(0);
+            pathK.append(path);
 
             // Set input/output queue.
             inputCount = 1;
@@ -88,18 +97,18 @@ public:
         }
         else
         {
-            int count = this->xSum.count()-1;
-            this->xSum.append(this->xSum[count]+x);
-            this->ySum.append(this->ySum[count]+y);
-            this->tSum.append(this->tSum[count]+t);
-            this->x2Sum.append(this->x2Sum[count]+x*x);
-            this->y2Sum.append(this->y2Sum[count]+y*y);
-            this->t2Sum.append(this->t2Sum[count]+t*t);
-            this->xtSum.append(this->xtSum[count]+x*t);
-            this->ytSum.append(this->ytSum[count]+y*t);
+            int count = xSum.count()-1;
+            xSum.append(xSum[count]+x);
+            ySum.append(ySum[count]+y);
+            tSum.append(tSum[count]+t);
+            x2Sum.append(x2Sum[count]+x*x);
+            y2Sum.append(y2Sum[count]+y*y);
+            t2Sum.append(t2Sum[count]+t*t);
+            xtSum.append(xtSum[count]+x*t);
+            ytSum.append(ytSum[count]+y*t);
         }
-        this->issed.append(0);
-        this->parents.append(-1);
+        issed.append(0);
+        parents.append(-1);
     }
 
     inline double getLSSD(int fst, int lst)
@@ -149,7 +158,11 @@ public:
      */
     inline bool readOutputData(double &x, double &y, double &t)
     {
-        directedAcyclicGraphSearch();
+        // Run DAG search to produce potentially more output data.
+        if (!finished && outputCount >= simplifiedIndex.count())
+            directedAcyclicGraphSearch();
+
+        // Retrieve one data.
         if (outputCount < simplifiedIndex.count())
         {
             int idx = simplifiedIndex[outputCount];
@@ -159,6 +172,7 @@ public:
             ++outputCount;
             return true;
         }
+        // No output yet.
         return false;
     }
 
@@ -220,6 +234,7 @@ public:
                 } // for (int i=inputCount; i<numPoints; ++i)
 
                 // Minimize ISSED.
+                minimizeISSED();
 
                 // Force swap vK/vL no matter we need update vK.
                 updateVK();
@@ -278,11 +293,13 @@ public:
                                     if (needUpdateVK())
                                     {
                                         // Minimize ISSED.
+                                        minimizeISSED();
 
                                         // Swap vK/vL
                                         updateVK();
 
                                         // Viterbi decoding.
+                                        viterbiDecode();
 
                                         // Break search loop.
                                         vKUpdated = true;
@@ -318,12 +335,74 @@ public:
 
     inline void updateVK()
     {
+        // Update following-path.
+        QVector<QVector<int>> newPath;
+        for (int k=0; k<vL.count(); ++k)
+        {
+            int indexK = -1;
+            int parentPos = parents.at(vL.at(k));
+            for (int m=0; m<vK.count(); ++m)
+            {
+                if (vK.at(m) == parentPos)
+                {
+                    indexK = m;
+                    break;
+                }
+            }
+
+            QVector<int> p = pathK.at(indexK);
+            p.append(vL.at(k));
+            newPath.append(p);
+        }
+        pathK = newPath;
+
+        // Update vK set.
         vK = vL;
         terminated.resize(vK.count());
         for (int k=0; k<terminated.count(); ++k)
             terminated[k] = false;
         numTerminated = 0;
         vL.clear();
+    }
+
+    inline void minimizeISSED()
+    {
+        foreach (int i, vL) {
+            double minDistance = issed.at(i);
+            double minParent = parents.at(i);
+            foreach (int j, vK) {
+                double distance = issed.at(j) + getLSSD(j,i);
+                if (distance<minDistance)
+                {
+                    minDistance = distance;
+                    minParent = j;
+                }
+            }
+            issed[i] = minDistance;
+            parents[i] = minParent;
+        }
+    }
+
+    inline void viterbiDecode()
+    {
+        int inputLayer = pathK.at(0).count();
+        int startLayer = simplifiedIndex.count();
+        while (startLayer < inputLayer) {
+            bool equal = true;
+            int reference = pathK.at(0).at(startLayer);
+            foreach (QVector<int> path, pathK) {
+                if (path.at(startLayer) != reference)
+                {
+                    equal = false;
+                    break;
+                }
+            }
+            if (!equal)
+                break;
+
+            simplifiedIndex.append(reference);
+            ++startLayer;
+        }
     }
 
     void finish();
@@ -365,12 +444,13 @@ public:
 
     QVector<double> ptx, pty, ptt;
     QVector<double> xSum, ySum, tSum, x2Sum, y2Sum, t2Sum, xtSum, ytSum;
-    QVector<double> vK,vL,vD,vE;
+    QVector<double> vK,vL/*,vD,vE*/;
+    QVector<QVector<int>> pathK;
     QVector<double> issed;
     QVector<int> parents;
     QVector<bool> terminated;
     int numTerminated;
-    int currentLayer;
+//    int currentLayer;
     QVector<int> simplifiedIndex;
     int inputCount;
     int outputCount;

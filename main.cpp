@@ -30,16 +30,18 @@ void batchDots(DotsSimplifier &simplifier, QVector<double> &x, QVector<double> &
             ox.append(px);
             oy.append(py);
             ot.append(pt);
-            //qDebug("Input: %4d, output: %4d (%4d)", i, simplifier.simplifiedIndex.at(ox.count()-1), ox.count());
+            qDebug("Input: %4d, output: %4d (%4d), Delay: %3d", i+1, simplifier.getSimplifiedIndex(ox.count()-1)+1,
+                   ox.count(), i-simplifier.getSimplifiedIndex(ox.count()-1));
         }
     }
-    //qDebug("=====> Finished <=======");
+//    qDebug("=====> Finished <=======");
     simplifier.finish();
     while (simplifier.readOutputData(px, py, pt)) {
         ox.append(px);
         oy.append(py);
         ot.append(pt);
-        //qDebug("Input: %4d, output: %4d (%4d)", pointCount, simplifier.simplifiedIndex.at(ox.count()-1), ox.count());
+        qDebug("Input: %4d, output: %4d (%4d), Delay: %3d", pointCount, simplifier.getSimplifiedIndex(ox.count()-1)+1,
+               ox.count(), pointCount-1-simplifier.getSimplifiedIndex(ox.count()-1));
     }
 }
 
@@ -57,13 +59,24 @@ int main(int argc, char *argv[])
         QString dataFileName = "E:\\Research_2015\\盲信号处理DOTS论文\\oritxt\\0001.txt";
         DotsSimplifier simplifier;
         // Set the simplification tolerance to 3km.
-        simplifier.setParameters(30000.0, 2.0);
+        simplifier.setParameters(3000.0);
         QVector<double> x,y,t;
         QElapsedTimer timer;
         // Parse the MOPSI data file as trajectory x/y/t.
         timer.start();
-        DotsSimplifier::parseMOPSI(dataFileName, x, y, t);
+        Helper::parseMOPSI(dataFileName, x, y, t);
         qDebug("Parsing file OK, time: %d ms.", timer.elapsed());
+
+        // Construct singular data.
+//        x.clear();
+//        y.clear();
+//        t.clear();
+//        for (int i=0; i<1000; ++i)
+//        {
+//            x.append(i);
+//            y.append(i);
+//            t.append(i);
+//        }
 
         // Simplify the parsed trajectory.
         timer.start();

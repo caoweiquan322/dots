@@ -38,32 +38,36 @@ class DotsSimplifier : public QObject
 public:
     // Regular member methods.
     /**
-     * @brief DotsSimplifier
-     * @param parent
+     * @brief DotsSimplifier is the default constructor.
+     * @param parent is the QT parent object.
      */
     explicit DotsSimplifier(QObject *parent = 0);
 
     /**
-     * @brief setParameters
-     * @param lssdTh
+     * @brief setParameters specifies DOTS settings for trajectory simplification.
+     * @param lssdTh is the LSSD threshold for DAG searching.
+     * @param k is the factor for upper bound. LSSD that exceeds lssdTh*k would be ignored by DAG searching.
+     * @param maxVkSize is the maximum size of each layer of DAG tree.
      */
-    void setParameters(double lssdTh, double k = 2.0);
+    void setParameters(double lssdTh, double k = 2.0, int maxVkSize = 1e6);
 
+    /**
+     * @brief resetInternalData resets all internal data structures for DOTS algorithm.
+     */
     void resetInternalData();
 
     /**
-     * @brief feedData
-     * @param x
-     * @param y
-     * @param t
+     * @brief feedData feeds a 2D spatio temporary point to DOTS.
+     * @param x is the x position.
+     * @param y is the y position.
+     * @param t is the timestamp.
      */
     inline void feedData(double x, double y, double t)
     {
         if (finished)
             DotsException("Feeding data is NOT allowed after the simplifier finished. "\
-                          "Suggest call resetInternalData() first.").raise();
+                          "Suggest calling resetInternalData() first.").raise();
 
-//        qDebug("Feed %d", ptx.count());
         // Store data.
         ptx.append(x);
         pty.append(y);
@@ -107,45 +111,9 @@ public:
             xtSum.append(xtSum[count]+x*t);
             ytSum.append(ytSum[count]+y*t);
         }
+        // Initialize issed&parents.
         issed.append(0);
         parents.append(-1);
-    }
-
-    inline double getLSSD(int fst, int lst)
-    {
-        if (fst+1>=lst)
-            return 0;
-        if (fst<0 || lst>=xSum.count())
-            DotsException(QString("Index out of bound error.")).raise();
-
-        int plst = lst-1;
-        double c1x = ptx[fst]*ptt[lst]-ptx[lst]*ptt[fst];
-        double c2x = c1x*c1x;
-        double c3x = ptt[lst]-ptt[fst];
-        double c4x = c3x*c3x;
-        double c5x = ptx[lst]-ptx[fst];
-        double c6x = c5x*c5x;
-
-        double c1y = pty[fst]*ptt[lst]-pty[lst]*ptt[fst];
-        double c2y = c1y*c1y;
-        double c3y = c3x;
-        double c4y = c3y*c3y;
-        double c5y = pty[lst]-pty[fst];
-        double c6y = c5y*c5y;
-
-        double distance = (plst-fst)*c2x/c4x
-                + c6x/c4x*(t2Sum[plst]-t2Sum[fst])
-                + (x2Sum[plst]-x2Sum[fst])
-                + 2*c1x*c5x/c4x*(tSum[plst]-tSum[fst])
-                - 2*c1x/c3x*(xSum[plst]-xSum[fst])
-                - 2*c5x/c3x*(xtSum[plst]-xtSum[fst])
-                + (plst-fst)*c2y/c4y
-                + c6y/c4y*(t2Sum[plst]-t2Sum[fst])
-                + (y2Sum[plst]-y2Sum[fst])
-                + 2*c1y*c5y/c4y*(tSum[plst]-tSum[fst])
-                - 2*c1y/c3y*(ySum[plst]-ySum[fst])
-                - 2*c5y/c3y*(ytSum[plst]-ytSum[fst]);
-        return distance;
     }
 
     /**
@@ -176,6 +144,29 @@ public:
         return false;
     }
 
+    /**
+     * @brief getSimplifiedIndex retrieves index of the i-th point of simplified trajectory.
+     * @param i the point number of simplified trajectory to retrieve.
+     * @return index of the i-th point.
+     */
+    inline int getSimplifiedIndex(int i)
+    {
+        if (i<0 || i>=simplifiedIndex.count())
+            DotsException(QString("Index %1 is out of range [0, %2)").arg(i).arg(simplifiedIndex.count())).raise();
+
+        return simplifiedIndex.at(i);
+    }
+
+    /**
+     * @brief finish sets the finish flag for DOTS algorithm. No more data could be feeded after calling this method.
+     */
+    void finish();
+
+protected:
+    /**
+     * @brief directedAcyclicGraphSearch does a DAG search among the feeded spatio-temporal 2D data. The output queue
+     * would be updated when appropriate.
+     */
     inline void directedAcyclicGraphSearch()
     {
         int numPoints = ptx.count();
@@ -260,7 +251,6 @@ public:
         {
             while (true)
             {
-//                qDebug("InputCount: %d", inputCount);
                 bool vKUpdated = false;
                 if (inputCount>=numPoints)
                     break;
@@ -282,6 +272,22 @@ public:
                                     vL.append(i);
                                     issed[i] = issed[jIndex]+distance;
                                     parents[i] = jIndex;
+
+                                    // Check if vL exceeds max size.
+                                    if (needUpdateVK())
+                                    {
+                                        // Minimize ISSED.
+                                        minimizeISSED();
+
+                                        // Swap vK/vL
+                                        updateVK();
+
+                                        // Viterbi decoding.
+                                        viterbiDecode();
+
+                                        // Break search loop.
+                                        vKUpdated = true;
+                                    }
                                     break;
                                 }
                                 else if (distance > lssdUpperBound)
@@ -328,11 +334,62 @@ public:
         }
     }
 
-    inline bool needUpdateVK()
+    /**
+     * @brief getLSSD calculates the LSSD (logogram of Local integral Square Synchronous Euclidean Distance ) between
+     * two points indexed by fst and lst.
+     * @param fst is index of the first point.
+     * @param lst is index of the second point.
+     * @return the LSSD distance.
+     */
+    inline double getLSSD(int fst, int lst)
     {
-        return vK.count() == numTerminated;
+        if (fst+1>=lst)
+            return 0;
+        if (fst<0 || lst>=xSum.count())
+            DotsException(QString("Index out of bound error.")).raise();
+
+        int plst = lst-1;
+        double c1x = ptx[fst]*ptt[lst]-ptx[lst]*ptt[fst];
+        double c2x = c1x*c1x;
+        double c3x = ptt[lst]-ptt[fst];
+        double c4x = c3x*c3x;
+        double c5x = ptx[lst]-ptx[fst];
+        double c6x = c5x*c5x;
+
+        double c1y = pty[fst]*ptt[lst]-pty[lst]*ptt[fst];
+        double c2y = c1y*c1y;
+        double c3y = c3x;
+        double c4y = c3y*c3y;
+        double c5y = pty[lst]-pty[fst];
+        double c6y = c5y*c5y;
+
+        double distance = (plst-fst)*c2x/c4x
+                + c6x/c4x*(t2Sum[plst]-t2Sum[fst])
+                + (x2Sum[plst]-x2Sum[fst])
+                + 2*c1x*c5x/c4x*(tSum[plst]-tSum[fst])
+                - 2*c1x/c3x*(xSum[plst]-xSum[fst])
+                - 2*c5x/c3x*(xtSum[plst]-xtSum[fst])
+                + (plst-fst)*c2y/c4y
+                + c6y/c4y*(t2Sum[plst]-t2Sum[fst])
+                + (y2Sum[plst]-y2Sum[fst])
+                + 2*c1y*c5y/c4y*(tSum[plst]-tSum[fst])
+                - 2*c1y/c3y*(ySum[plst]-ySum[fst])
+                - 2*c5y/c3y*(ytSum[plst]-ytSum[fst]);
+        return distance;
     }
 
+    /**
+     * @brief needUpdateVK Checks if we need to swap Vl and Vk sets.
+     * @return true if a swap operation is necessary, false otherwise.
+     */
+    inline bool needUpdateVK()
+    {
+        return (vK.count() == numTerminated || vL.count()>= maxVkSize);
+    }
+
+    /**
+     * @brief updateVK swaps Vl and Vk sets and updates the DAG paths from root node to each elements of current Vk set.
+     */
     inline void updateVK()
     {
         // Update following-path.
@@ -365,6 +422,10 @@ public:
         vL.clear();
     }
 
+    /**
+     * @brief minimizeISSED minimizes the total error from root node to each element of Vl set. The minimization is
+     * done by choosing the best parents of Vl elements among Vk elements.
+     */
     inline void minimizeISSED()
     {
         foreach (int i, vL) {
@@ -383,6 +444,9 @@ public:
         }
     }
 
+    /**
+     * @brief viterbiDecode decodes output indices of simplified points in a viterbi-like manner.
+     */
     inline void viterbiDecode()
     {
         int inputLayer = pathK.at(0).count();
@@ -405,63 +469,34 @@ public:
         }
     }
 
-    void finish();
-
-    // Static methods.
-    /**
-     * @brief parseMOPSI
-     * @param fileName
-     * @param x
-     * @param y
-     * @param t
-     */
-    static void parseMOPSI(QString fileName, QVector<double> &x, QVector<double> &y, QVector<double> &t);
-
-    /**
-     * @brief mercatorProject
-     * @param longitude
-     * @param latitude
-     * @param x
-     * @param y
-     */
-    static void mercatorProject(QVector<double> &longitude, QVector<double> &latitude, QVector<double> &x,
-                                QVector<double> &y);
-
-    /**
-     * @brief normalizeData
-     * @param x
-     * @param byMean
-     */
-    static void normalizeData(QVector<double> &x, bool byMean = true);
-
-public:
+protected:
+    // DOTS settings.
     /**
      * @brief lssdTh
      */
     double lssdTh;
-
     double lssdUpperBound;
+    int maxVkSize;
 
+    // Input sequence.
     QVector<double> ptx, pty, ptt;
+
+    // DOTS algorithm internal data.
     QVector<double> xSum, ySum, tSum, x2Sum, y2Sum, t2Sum, xtSum, ytSum;
-    QVector<double> vK,vL/*,vD,vE*/;
+    QVector<double> vK,vL;
+    QVector<bool> terminated;
+    int numTerminated;
     QVector<QVector<int>> pathK;
     QVector<double> issed;
     QVector<int> parents;
-    QVector<bool> terminated;
-    int numTerminated;
-//    int currentLayer;
+
+    // Output sequence.
     QVector<int> simplifiedIndex;
     int inputCount;
     int outputCount;
 
+    // Indicates if the input got EOF. No more data could be input after this flag was set.
     bool finished;
-
-    /**
-     * @brief MOPSI_DATETIME_FORMAT
-     */
-    static const QString MOPSI_DATETIME_FORMAT;
-    static const double SCALE_FACTOR_PRECISION;
 
 signals:
 

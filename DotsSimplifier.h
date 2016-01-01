@@ -393,7 +393,7 @@ protected:
     inline void updateVK()
     {
         // Update following-path.
-        QVector<QVector<int>> newPath;
+        QVector< QVector<int> > newPath;
         for (int k=0; k<vL.count(); ++k)
         {
             int indexK = -1;
@@ -486,7 +486,7 @@ protected:
     QVector<double> vK,vL;
     QVector<bool> terminated;
     int numTerminated;
-    QVector<QVector<int>> pathK;
+    QVector< QVector<int> > pathK;
     QVector<double> issed;
     QVector<int> parents;
 

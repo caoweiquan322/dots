@@ -8,6 +8,7 @@
 #define DOTSEXCEPTION_H
 
 #include<QException>
+#include<QString>
 
 /**
  * @brief The DotsException class defines an exception used by this package. It contains a member describing cause of
@@ -20,13 +21,18 @@ public:
      * @brief DotsException is the default constructor.
      * @param message describes cause of this exception.
      */
-    DotsException(QString message);
+    DotsException(QString message) throw();
 
     /**
      * @brief DotsException is the copy constructor.
      * @param e is the DotsException instance to copy.
      */
-    DotsException(const DotsException &e);
+    DotsException(const DotsException &e) throw();
+
+    /**
+     * @brief ~DotsException is the default deconstructor.
+     */
+    ~DotsException() throw();
 
     /**
      * @brief getMessage retrieves the cause of this exception.

@@ -1,8 +1,4 @@
-/* This software is developed by caoweiquan322 OR DynamicFatty.
- * All rights reserved.
- *
- * Author: caoweiquan322
- */
+/* Copyright © 2015 DynamicFatty. All Rights Reserved. */
 
 #include "Helper.h"
 #include "DotsException.h"

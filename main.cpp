@@ -1,8 +1,4 @@
-/* This software is developed by caoweiquan322 OR DynamicFatty.
- * All rights reserved.
- *
- * Author: caoweiquan322
- */
+/* Copyright © 2015 DynamicFatty. All Rights Reserved. */
 
 #include <QCoreApplication>
 #include<QDebug>
@@ -30,8 +26,8 @@ void batchDots(DotsSimplifier &simplifier, QVector<double> &x, QVector<double> &
             ox.append(px);
             oy.append(py);
             ot.append(pt);
-            qDebug("Input: %4d, output: %4d (%4d), Delay: %3d", i+1, simplifier.getSimplifiedIndex(ox.count()-1)+1,
-                   ox.count(), i-simplifier.getSimplifiedIndex(ox.count()-1));
+//            qDebug("Input: %4d, output: %4d (%4d), Delay: %3d", i+1, simplifier.getSimplifiedIndex(ox.count()-1)+1,
+//                   ox.count(), i-simplifier.getSimplifiedIndex(ox.count()-1));
         }
     }
 //    qDebug("=====> Finished <=======");
@@ -40,8 +36,8 @@ void batchDots(DotsSimplifier &simplifier, QVector<double> &x, QVector<double> &
         ox.append(px);
         oy.append(py);
         ot.append(pt);
-        qDebug("Input: %4d, output: %4d (%4d), Delay: %3d", pointCount, simplifier.getSimplifiedIndex(ox.count()-1)+1,
-               ox.count(), pointCount-1-simplifier.getSimplifiedIndex(ox.count()-1));
+//        qDebug("Input: %4d, output: %4d (%4d), Delay: %3d", pointCount, simplifier.getSimplifiedIndex(ox.count()-1)+1,
+//               ox.count(), pointCount-1-simplifier.getSimplifiedIndex(ox.count()-1));
     }
 }
 

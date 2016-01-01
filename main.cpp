@@ -53,10 +53,10 @@ void batchDots(DotsSimplifier &simplifier, QVector<double> &x, QVector<double> &
  */
 int main(int argc, char *argv[])
 {
-    QCoreApplication a(argc, argv);
+    //QCoreApplication a(argc, argv);
     try
     {
-        QString dataFileName = "E:\\Research_2015\\盲信号处理DOTS论文\\oritxt\\0001.txt";
+        QString dataFileName = "../dots/r6.txt";
         DotsSimplifier simplifier;
         // Set the simplification tolerance to 3km.
         simplifier.setParameters(3000.0);

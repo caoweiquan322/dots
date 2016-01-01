@@ -86,9 +86,13 @@ public:
 
 protected:
     /**
-     * @brief MOPSI_DATETIME_FORMAT
+     * @brief MOPSI_DATETIME_FORMAT represents the datetime format of MOPSI dataset.
      */
     static const QString MOPSI_DATETIME_FORMAT;
+
+    /**
+     * @brief SCALE_FACTOR_PRECISION represents the precision for mercator projection.
+     */
     static const double SCALE_FACTOR_PRECISION;
 
 signals:

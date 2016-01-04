@@ -428,8 +428,9 @@ protected:
             double minDistance = issed.at(i);
             double minParent = parents.at(i);
             foreach (int j, vK) {
-                double distance = issed.at(j) + getLSSD(j,i);
-                if (distance<minDistance)
+                double localDistance = getLSSD(j,i);
+                double distance = issed.at(j) + localDistance;
+                if (localDistance<lssdTh && distance<minDistance)
                 {
                     minDistance = distance;
                     minParent = j;

@@ -1,4 +1,8 @@
-/* Copyright © 2015 DynamicFatty. All Rights Reserved. */
+/* This software is developed by caoweiquan322 OR DynamicFatty.
+ * All rights reserved.
+ *
+ * Author: caoweiquan322
+ */
 
 /**
   * @file
@@ -37,7 +41,7 @@ public:
      * @brief DotsSimplifier is the default constructor.
      * @param parent is the QT parent object.
      */
-    explicit DotsSimplifier(QObject *parent = 0);
+    explicit DotsSimplifier(QObject *parent = 0, DotsSimplifier *cascadeRoot = NULL);
 
     /**
      * @brief setParameters specifies DOTS settings for trajectory simplification.
@@ -63,13 +67,17 @@ public:
         if (finished)
             DotsException("Feeding data is NOT allowed after the simplifier finished. "\
                           "Suggest calling resetInternalData() first.").raise();
+        if (!isCascadeRoot)
+            DotsException("We can only feed index to non-root simplifier. "\
+                          "Try feedIndex() instead.").raise();
 
         // Store data.
         ptx.append(x);
         pty.append(y);
         ptt.append(t);
-        // Update statistics.
-        if (xSum.empty())
+        ptIndex.append(ptIndex.count());
+        // Update internal data.
+        if (ptIndex.count() == 1)
         {
             xSum.append(x);
             ySum.append(y);
@@ -112,6 +120,39 @@ public:
         parents.append(-1);
     }
 
+    inline void feedIndex(int index)
+    {
+        if (finished)
+            DotsException("Feeding data is NOT allowed after the simplifier finished. "\
+                          "Suggest calling resetInternalData() first.").raise();
+        if (isCascadeRoot)
+            DotsException("We can only feed data to the cascade root simplifier. "\
+                          "Try feedData() instead.").raise();
+
+        ptIndex.append(index);
+        // Update internal data.
+        if (ptIndex.count() == 1)
+        {
+            // Setup the initial vK set {0}.
+            vK.append(0);
+            terminated.append(false);
+            numTerminated = 0;
+
+            // Setup the following-path for viterbi decoding.
+            QVector<int> path;
+            path.append(0);
+            pathK.append(path);
+
+            // Set input/output queue.
+            inputCount = 1;
+            outputCount = 0;
+            simplifiedIndex.append(ptIndex.at(0));
+        }
+        // Initialize issed&parents.
+        issed.append(0);
+        parents.append(-1);
+    }
+
     /**
      * @brief readOutputData checks if the simplifier outputs any data after the recent feeds. Output data will be
      * stored in corresponding parameters if returned true.
@@ -122,6 +163,24 @@ public:
      */
     inline bool readOutputData(double &x, double &y, double &t)
     {
+        int index = -1;
+        if (!readOutputIndex(index))
+            return false;
+
+        x = pX->at(index);
+        y = pY->at(index);
+        t = pT->at(index);
+        return true;
+    }
+
+    /**
+     * @brief readOutputIndex checks if the simplifier outputs any data after the recent feeds. Output data will be
+     * stored in corresponding parameters if returned true.
+     * @param index the selected index to output.
+     * @return true if there's output data, false otherwise.
+     */
+    inline bool readOutputIndex(int &index)
+    {
         // Run DAG search to produce potentially more output data.
         if (!finished && outputCount >= simplifiedIndex.count())
             directedAcyclicGraphSearch();
@@ -129,10 +188,7 @@ public:
         // Retrieve one data.
         if (outputCount < simplifiedIndex.count())
         {
-            int idx = simplifiedIndex[outputCount];
-            x = ptx[idx];
-            y = pty[idx];
-            t = ptt[idx];
+            index = ptIndex.at(simplifiedIndex.at(outputCount));
             ++outputCount;
             return true;
         }
@@ -150,13 +206,68 @@ public:
         if (i<0 || i>=simplifiedIndex.count())
             DotsException(QString("Index %1 is out of range [0, %2)").arg(i).arg(simplifiedIndex.count())).raise();
 
-        return simplifiedIndex.at(i);
+        return ptIndex.at(simplifiedIndex.at(i));
     }
 
     /**
      * @brief finish sets the finish flag for DOTS algorithm. No more data could be feeded after calling this method.
      */
     void finish();
+
+    /**
+     * @brief getLssdThreshold retrieves the LSSD threshold used in this simplifier.
+     * @return the LSSD threshold used in this simplifier.
+     */
+    double getLssdThreshold();
+
+    /**
+     * @brief getAverageSED gets the average SED error. Note that this method must be called after finish().
+     * @return the average SED error.
+     */
+    double getAverageSED();
+
+    /**
+     * @brief getMaxLSSD retrieves the maximum LSSD generated during the simplification. Note that this method must
+     * be called after finish().
+     * @return the maximum LSSD.
+     */
+    double getMaxLSSD();
+
+    /**
+     * @brief batchDots provides a batched simplification utility by invoking the online DOTS simplifier.
+     * @param x
+     * @param y
+     * @param t
+     * @param ox
+     * @param oy
+     * @param ot
+     * @param lssdThreshold
+     */
+    static void batchDots(const QVector<double> &x, const QVector<double> &y, const QVector<double> &t,
+                          QVector<double> &ox, QVector<double> &oy, QVector<double> &ot,
+                          double lssdThreshold);
+
+    static void batchDotsByIndex(const QVector<double> &x, const QVector<double> &y, const QVector<double> &t,
+                                 QVector<int> &simplifiedIndex, double lssdThreshold);
+
+    /**
+     * @brief batchDotsCascade provides a batched simplification utility by invoking the online DOTS simplifier in
+     * cascade mode. The cascade mode is not as accurate as normal mode but is much faster. Refer to this method to
+     * learn how to use cascaded DOTS online.
+     * @param x
+     * @param y
+     * @param t
+     * @param ox
+     * @param oy
+     * @param ot
+     * @param lssdThreshold
+     */
+    static void batchDotsCascade(const QVector<double> &x, const QVector<double> &y, const QVector<double> &t,
+                                 QVector<double> &ox, QVector<double> &oy, QVector<double> &ot,
+                                 double lssdThreshold);
+
+    static void batchDotsCascadeByIndex(const QVector<double> &x, const QVector<double> &y, const QVector<double> &t,
+                                        QVector<int> &simplifiedIndex, double lssdThreshold);
 
 protected:
     /**
@@ -165,7 +276,7 @@ protected:
      */
     inline void directedAcyclicGraphSearch()
     {
-        int numPoints = ptx.count();
+        int numPoints = ptIndex.count();
         if (finished)
         {
             // Construct the DAG completely.
@@ -339,38 +450,40 @@ protected:
      */
     inline double getLSSD(int fst, int lst)
     {
+        fst = ptIndex.at(fst);
+        lst = ptIndex.at(lst);
         if (fst+1>=lst)
             return 0;
-        if (fst<0 || lst>=xSum.count())
+        if (fst<0 || lst>=pXSum->count())
             DotsException(QString("Index out of bound error.")).raise();
 
         int plst = lst-1;
-        double c1x = ptx[fst]*ptt[lst]-ptx[lst]*ptt[fst];
+        double c1x = pX->at(fst)*pT->at(lst)-pX->at(lst)*pT->at(fst);
         double c2x = c1x*c1x;
-        double c3x = ptt[lst]-ptt[fst];
+        double c3x = pT->at(lst)-pT->at(fst);
         double c4x = c3x*c3x;
-        double c5x = ptx[lst]-ptx[fst];
+        double c5x = pX->at(lst)-pX->at(fst);
         double c6x = c5x*c5x;
 
-        double c1y = pty[fst]*ptt[lst]-pty[lst]*ptt[fst];
+        double c1y = pY->at(fst)*pT->at(lst)-pY->at(lst)*pT->at(fst);
         double c2y = c1y*c1y;
         double c3y = c3x;
         double c4y = c3y*c3y;
-        double c5y = pty[lst]-pty[fst];
+        double c5y = pY->at(lst)-pY->at(fst);
         double c6y = c5y*c5y;
 
         double distance = (plst-fst)*c2x/c4x
-                + c6x/c4x*(t2Sum[plst]-t2Sum[fst])
-                + (x2Sum[plst]-x2Sum[fst])
-                + 2*c1x*c5x/c4x*(tSum[plst]-tSum[fst])
-                - 2*c1x/c3x*(xSum[plst]-xSum[fst])
-                - 2*c5x/c3x*(xtSum[plst]-xtSum[fst])
+                + c6x/c4x*(pT2Sum->at(plst)-pT2Sum->at(fst))
+                + (pX2Sum->at(plst)-pX2Sum->at(fst))
+                + 2*c1x*c5x/c4x*(pTSum->at(plst)-pTSum->at(fst))
+                - 2*c1x/c3x*(pXSum->at(plst)-pXSum->at(fst))
+                - 2*c5x/c3x*(pXTSum->at(plst)-pXTSum->at(fst))
                 + (plst-fst)*c2y/c4y
-                + c6y/c4y*(t2Sum[plst]-t2Sum[fst])
-                + (y2Sum[plst]-y2Sum[fst])
-                + 2*c1y*c5y/c4y*(tSum[plst]-tSum[fst])
-                - 2*c1y/c3y*(ySum[plst]-ySum[fst])
-                - 2*c5y/c3y*(ytSum[plst]-ytSum[fst]);
+                + c6y/c4y*(pT2Sum->at(plst)-pT2Sum->at(fst))
+                + (pY2Sum->at(plst)-pY2Sum->at(fst))
+                + 2*c1y*c5y/c4y*(pTSum->at(plst)-pTSum->at(fst))
+                - 2*c1y/c3y*(pYSum->at(plst)-pYSum->at(fst))
+                - 2*c5y/c3y*(pYTSum->at(plst)-pYTSum->at(fst));
         return distance;
     }
 
@@ -389,7 +502,7 @@ protected:
     inline void updateVK()
     {
         // Update following-path.
-        QVector< QVector<int> > newPath;
+        QVector<QVector<int>> newPath;
         for (int k=0; k<vL.count(); ++k)
         {
             int indexK = -1;
@@ -477,13 +590,16 @@ protected:
 
     // Input sequence.
     QVector<double> ptx, pty, ptt;
+    QVector<int> ptIndex;
+    QVector<double> *pX, *pY, *pT;
 
     // DOTS algorithm internal data.
     QVector<double> xSum, ySum, tSum, x2Sum, y2Sum, t2Sum, xtSum, ytSum;
+    QVector<double> *pXSum, *pYSum, *pTSum, *pX2Sum, *pY2Sum, *pT2Sum, *pXTSum, *pYTSum;
     QVector<double> vK,vL;
     QVector<bool> terminated;
     int numTerminated;
-    QVector< QVector<int> > pathK;
+    QVector<QVector<int>> pathK;
     QVector<double> issed;
     QVector<int> parents;
 
@@ -494,6 +610,8 @@ protected:
 
     // Indicates if the input got EOF. No more data could be input after this flag was set.
     bool finished;
+
+    bool isCascadeRoot;
 
 signals:
 

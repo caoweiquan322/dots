@@ -1,10 +1,13 @@
-/* Copyright © 2015 DynamicFatty. All Rights Reserved. */
+/* This software is developed by caoweiquan322 OR DynamicFatty.
+ * All rights reserved.
+ *
+ * Author: caoweiquan322
+ */
 
 #ifndef DOTSEXCEPTION_H
 #define DOTSEXCEPTION_H
 
 #include<QException>
-#include<QString>
 
 /**
  * @brief The DotsException class defines an exception used by this package. It contains a member describing cause of
@@ -17,18 +20,13 @@ public:
      * @brief DotsException is the default constructor.
      * @param message describes cause of this exception.
      */
-    DotsException(QString message) throw();
+    DotsException(QString message);
 
     /**
      * @brief DotsException is the copy constructor.
      * @param e is the DotsException instance to copy.
      */
-    DotsException(const DotsException &e) throw();
-
-    /**
-     * @brief ~DotsException is the default deconstructor.
-     */
-    ~DotsException() throw();
+    DotsException(const DotsException &e);
 
     /**
      * @brief getMessage retrieves the cause of this exception.

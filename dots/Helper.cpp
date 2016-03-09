@@ -1,4 +1,8 @@
-/* Copyright © 2015 DynamicFatty. All Rights Reserved. */
+/* This software is developed by caoweiquan322 OR DynamicFatty.
+ * All rights reserved.
+ *
+ * Author: caoweiquan322
+ */
 
 #include "Helper.h"
 #include "DotsException.h"
@@ -10,6 +14,8 @@
 
 const QString Helper::MOPSI_DATETIME_FORMAT("yyyy-MM-ddHH:mm:ss");
 const double Helper::SCALE_FACTOR_PRECISION = 1e-4;
+const double Helper::ZERO = 0.0;
+const double Helper::INF = 1.0/Helper::ZERO;
 
 Helper::Helper(QObject *parent) : QObject(parent)
 {
@@ -28,6 +34,14 @@ void Helper::checkIntEqual(int a, int b)
     if(a!=b)
     {
         DotsException(QString("Expected equal values but got %1 and %2.").arg(a).arg(b)).raise();
+    }
+}
+
+void Helper::checkPositive(QString name, double value)
+{
+    if (value < 1e-10)
+    {
+        DotsException(QString("Expected %1 being positive but got %2.").arg(name).arg(value)).raise();
     }
 }
 
@@ -61,9 +75,71 @@ void Helper::parseMOPSI(QString fileName, QVector<double> &x, QVector<double> &y
             }
 
             // Store the parsed data without cleaning it.
+            double timestamp = (double)QDateTime::fromString(parts[2]+parts[3], MOPSI_DATETIME_FORMAT).toTime_t();
+            if (!t.empty() && timestamp-t.last() < 1e-15) // Duplicated time point.
+                continue;
             latitude.append(parts[0].toDouble());
             longitude.append(parts[1].toDouble());
-            t.append((double)QDateTime::fromString(parts[2]+parts[3], MOPSI_DATETIME_FORMAT).toTime_t());
+            t.append(timestamp);
+        }
+        // Do mercator projection on the parsed longitude/latitude.
+        mercatorProject(longitude, latitude, x, y);
+
+        // Normalize data by first value of each array.
+        Helper::normalizeData(x, true);
+        Helper::normalizeData(y, true);
+        Helper::normalizeData(t, false);
+    }
+    catch (DotsException &e)
+    {
+        e.raise();
+    }
+    catch (QException &)
+    {
+        DotsException("Error occured when parsing trajectory file.").raise();
+    }
+}
+
+void Helper::parseGeoLife(QString fileName, QVector<double> &x, QVector<double> &y, QVector<double> &t)
+{
+    // Check if file name is null or empty.
+    Helper::checkNotNullNorEmpty("fileName", fileName);
+    try
+    {
+        // Open file in TEXT mode.
+        QFile file(fileName.trimmed());
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            DotsException(QString("Open file %1 error.").arg(fileName)).raise();
+
+        QVector<double> longitude, latitude;
+        x.clear();
+        y.clear();
+        t.clear();
+        int numLine = 0;
+        while(!file.atEnd())
+        {
+            // Read the file line by line.
+            QByteArray line = file.readLine().trimmed();
+            ++numLine;
+            if (numLine<=6)
+                continue;
+            if(line.isEmpty())
+                continue;
+            auto parts = line.split(',');
+
+            // In case where the line is malformed.
+            if(parts.count() != 7)
+            {
+                DotsException("Malformed line found.").raise();
+            }
+
+            // Store the parsed data without cleaning it.
+            double timestamp = parts[4].toDouble();
+            if (!t.empty() && timestamp-t.last() < 1e-15) // Duplicated time point.
+                continue;
+            latitude.append(parts[0].toDouble());
+            longitude.append(parts[1].toDouble());
+            t.append(timestamp);
         }
         // Do mercator projection on the parsed longitude/latitude.
         mercatorProject(longitude, latitude, x, y);

@@ -20,6 +20,21 @@
 #include"PersistenceBatchSimplifier.h"
 #include"SquishBatchSimplifier.h"
 
+const int AlgorithmComparison::ERR_AVERAGE_SED = 0x01;
+const int AlgorithmComparison::ERR_MAX_SED = 0x02;
+const int AlgorithmComparison::ERR_MEAN_SED = 0x04;
+const int AlgorithmComparison::ERR_AVERAGE_SSED_PER_POINT = 0x08;
+const int AlgorithmComparison::ERR_MAX_LSSED = 0x10;
+const int AlgorithmComparison::ERR_TIME_COST = 0x20;
+
+const int AlgorithmComparison::ALG_DOTS = 0x01;
+const int AlgorithmComparison::ALG_DOTS_CASCADE = 0x02;
+const int AlgorithmComparison::ALG_DP = 0x04;
+const int AlgorithmComparison::ALG_PERSISTENCE = 0x08;
+const int AlgorithmComparison::ALG_SQUISH = 0x10;
+const int AlgorithmComparison::ALG_MRPA = 0x20;
+const int AlgorithmComparison::ALG_TS = 0x40;
+
 AlgorithmComparison::AlgorithmComparison(QObject *parent) : QObject(parent)
 {
 

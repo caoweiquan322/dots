@@ -106,20 +106,34 @@ protected:
     }
 
 public:
-    static const int ERR_AVERAGE_SED = 0x01;
-    static const int ERR_MAX_SED = 0x02;
-    static const int ERR_MEAN_SED = 0x04;
-    static const int ERR_AVERAGE_SSED_PER_POINT = 0x08;
-    static const int ERR_MAX_LSSED = 0x10;
-    static const int ERR_TIME_COST = 0x20;
+//    static const int ERR_AVERAGE_SED = 0x01;
+//    static const int ERR_MAX_SED = 0x02;
+//    static const int ERR_MEAN_SED = 0x04;
+//    static const int ERR_AVERAGE_SSED_PER_POINT = 0x08;
+//    static const int ERR_MAX_LSSED = 0x10;
+//    static const int ERR_TIME_COST = 0x20;
 
-    static const int ALG_DOTS = 0x01;
-    static const int ALG_DOTS_CASCADE = 0x02;
-    static const int ALG_DP = 0x04;
-    static const int ALG_PERSISTENCE = 0x08;
-    static const int ALG_SQUISH = 0x10;
-    static const int ALG_MRPA = 0x20;
-    static const int ALG_TS = 0x40;
+//    static const int ALG_DOTS = 0x01;
+//    static const int ALG_DOTS_CASCADE = 0x02;
+//    static const int ALG_DP = 0x04;
+//    static const int ALG_PERSISTENCE = 0x08;
+//    static const int ALG_SQUISH = 0x10;
+//    static const int ALG_MRPA = 0x20;
+//    static const int ALG_TS = 0x40;
+    static const int ERR_AVERAGE_SED;
+    static const int ERR_MAX_SED;
+    static const int ERR_MEAN_SED;
+    static const int ERR_AVERAGE_SSED_PER_POINT;
+    static const int ERR_MAX_LSSED;
+    static const int ERR_TIME_COST;
+
+    static const int ALG_DOTS;
+    static const int ALG_DOTS_CASCADE;
+    static const int ALG_DP;
+    static const int ALG_PERSISTENCE;
+    static const int ALG_SQUISH;
+    static const int ALG_MRPA;
+    static const int ALG_TS;
 
 signals:
 

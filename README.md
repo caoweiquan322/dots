@@ -5,3 +5,4 @@ Please refer to my paper for details. The DOTS algorithm has several advantages:
 * It's a near-optimal algorithm. As a result, the accuracy is compared to those batch mode algorithms like TS/MRPA.
 * It solves not only the min-# problem but also (partially) the min-e problem.
 * The time cost is relatively low. The time complexity is O(N/M) for each input point. Note that N/M represents the simplification or compression rate.
+* For the cascaded version of DOTS, time complexity for each input point is as low as O(1).

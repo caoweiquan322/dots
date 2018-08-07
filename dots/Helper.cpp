@@ -100,6 +100,61 @@ void Helper::parseMOPSI(QString fileName, QVector<double> &x, QVector<double> &y
     }
 }
 
+void Helper::parseMOPSI2(QString fileName, QVector<double> &x, QVector<double> &y, QVector<double> &t)
+{
+    // Check if file name is null or empty.
+    Helper::checkNotNullNorEmpty("fileName", fileName);
+    try
+    {
+        // Open file in TEXT mode.
+        QFile file(fileName.trimmed());
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            DotsException(QString("Open file %1 error.").arg(fileName)).raise();
+
+        QVector<double> longitude, latitude;
+        x.clear();
+        y.clear();
+        t.clear();
+        while(!file.atEnd())
+        {
+            // Read the file line by line.
+            QByteArray line = file.readLine().trimmed();
+            if(line.isEmpty())
+                continue;
+            auto parts = line.split(' ');
+
+            // In case where the line is malformed.
+            if(parts.count() != 4)
+            {
+                DotsException("Malformed line found.").raise();
+            }
+
+            // Store the parsed data without cleaning it.
+            double timestamp = parts[2].toDouble()/1000.0;
+            if (!t.empty() && timestamp-t.last() < 1e-15) // Duplicated time point.
+                continue;
+            latitude.append(parts[0].toDouble());
+            longitude.append(parts[1].toDouble());
+            t.append(timestamp);
+        }
+        // Do mercator projection on the parsed longitude/latitude.
+        mercatorProject(longitude, latitude, x, y);
+
+        // Normalize data by first value of each array.
+        Helper::normalizeData(x, true);
+        Helper::normalizeData(y, true);
+        Helper::normalizeData(t, false);
+    }
+    catch (DotsException &e)
+    {
+        e.raise();
+    }
+    catch (QException &)
+    {
+        DotsException("Error occured when parsing trajectory file.").raise();
+    }
+}
+
 void Helper::parseGeoLife(QString fileName, QVector<double> &x, QVector<double> &y, QVector<double> &t)
 {
     // Check if file name is null or empty.
@@ -135,6 +190,7 @@ void Helper::parseGeoLife(QString fileName, QVector<double> &x, QVector<double> 
 
             // Store the parsed data without cleaning it.
             double timestamp = parts[4].toDouble();
+            timestamp *= (24*3600);
             if (!t.empty() && timestamp-t.last() < 1e-15) // Duplicated time point.
                 continue;
             latitude.append(parts[0].toDouble());
@@ -143,6 +199,61 @@ void Helper::parseGeoLife(QString fileName, QVector<double> &x, QVector<double> 
         }
         // Do mercator projection on the parsed longitude/latitude.
         mercatorProject(longitude, latitude, x, y);
+
+        // Normalize data by first value of each array.
+        Helper::normalizeData(x, true);
+        Helper::normalizeData(y, true);
+        Helper::normalizeData(t, false);
+    }
+    catch (DotsException &e)
+    {
+        e.raise();
+    }
+    catch (QException &)
+    {
+        DotsException("Error occured when parsing trajectory file.").raise();
+    }
+}
+
+void Helper::parseMitScv(QString fileName, QVector<double> &x, QVector<double> &y, QVector<double> &t)
+{
+    // Check if file name is null or empty.
+    Helper::checkNotNullNorEmpty("fileName", fileName);
+    try
+    {
+        // Open file in TEXT mode.
+        QFile file(fileName.trimmed());
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            DotsException(QString("Open file %1 error.").arg(fileName)).raise();
+
+        x.clear();
+        y.clear();
+        t.clear();
+        int numLine = 0;
+        while(!file.atEnd())
+        {
+            // Read the file line by line.
+            QByteArray line = file.readLine().trimmed();
+            ++numLine;
+            if(line.isEmpty())
+                continue;
+            auto parts = line.split(',');
+
+            // In case where the line is malformed.
+            if(parts.count() != 3)
+            {
+                DotsException("Malformed line found.").raise();
+            }
+
+            // Store the parsed data without cleaning it.
+            double timestamp = parts[2].toDouble();
+            if (!t.empty() && timestamp-t.last() < 1e-15) // Duplicated time point.
+                continue;
+            x.append(parts[0].toDouble());
+            y.append(parts[1].toDouble());
+            t.append(timestamp);
+        }
+        // Need no mercator projection.
 
         // Normalize data by first value of each array.
         Helper::normalizeData(x, true);
@@ -171,8 +282,8 @@ void Helper::mercatorProject(QVector<double> &longitude, QVector<double> &latitu
         x.clear();
         y.clear();
         // Define the constant MERCATOR projection limits.
-        const double MERCATOR_LATITUDE_LB = 2.5*2.0-M_PI/2;
-        const double MERCATOR_LATITUDE_UB = 87.5*2.0-M_PI/2;
+        const double MERCATOR_LATITUDE_LB = 2.5*2.0-90.0;
+        const double MERCATOR_LATITUDE_UB = 87.5*2.0-90.0;
         int pointCount = longitude.count();
         if(pointCount<=0)
         {

@@ -74,6 +74,7 @@ public:
      * @param t is the timestamps of trajectory points.
      */
     static void parseMOPSI(QString fileName, QVector<double> &x, QVector<double> &y, QVector<double> &t);
+    static void parseMOPSI2(QString fileName, QVector<double> &x, QVector<double> &y, QVector<double> &t);
 
     /**
      * @brief parseGeoLife parses a GeoLife data file. Reference to Dr. Yu Zheng in MRA (Microsoft Research in Asia)
@@ -84,6 +85,8 @@ public:
      * @param t is the timestamps of trajectory points.
      */
     static void parseGeoLife(QString fileName, QVector<double> &x, QVector<double> &y, QVector<double> &t);
+
+    static void parseMitScv(QString fileName, QVector<double> &x, QVector<double> &y, QVector<double> &t);
 
     /**
      * @brief mercatorProject does mercator projection on the longitude/latitude pairs.

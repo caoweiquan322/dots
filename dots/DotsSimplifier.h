@@ -281,6 +281,11 @@ public:
     static void batchDotsCascadeByIndex(const QVector<double> &x, const QVector<double> &y, const QVector<double> &t,
                                         QVector<int> &simplifiedIndex, double lssdThreshold);
 
+    static void batchDotsCascadeByIndexOptions(const QVector<double> &x, const QVector<double> &y,
+                                               const QVector<double> &t,
+                                               QVector<int> &simplifiedIndex, double lssdThreshold,
+                                               double thStart, double thStep);
+
 protected:
     /**
      * @brief directedAcyclicGraphSearch does a DAG search among the feeded spatio-temporal 2D data. The output queue

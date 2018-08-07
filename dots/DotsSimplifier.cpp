@@ -9,6 +9,7 @@
 #include"DotsException.h"
 #include<QVector>
 #include<QtMath>
+#include<QDebug>
 
 DotsSimplifier::DotsSimplifier(QObject *parent, DotsSimplifier *cascadeRoot) : QObject(parent)
 {
@@ -159,6 +160,7 @@ void DotsSimplifier::batchDotsByIndex(const QVector<double> &x, const QVector<do
 //            qDebug("Input: %4d, output: %4d (%4d), Delay: %3d", i+1, simplifier.getSimplifiedIndex(ox.count()-1)+1,
 //                   ox.count(), i-simplifier.getSimplifiedIndex(ox.count()-1));
         }
+        //qDebug()<<i<<","<<simplifiedIndex.last();
     }
 //    qDebug("=====> Finished <=======");
     simplifier.finish();
@@ -166,6 +168,7 @@ void DotsSimplifier::batchDotsByIndex(const QVector<double> &x, const QVector<do
         simplifiedIndex.append(idx);
 //        qDebug("Input: %4d, output: %4d (%4d), Delay: %3d", pointCount, simplifier.getSimplifiedIndex(ox.count()-1)+1,
 //               ox.count(), pointCount-1-simplifier.getSimplifiedIndex(ox.count()-1));
+        //qDebug()<<(pointCount-1)<<","<<simplifiedIndex.last();
     }
 //    qDebug("Average SED of the simplified trajectory is %.3f meters.", simplifier.getAverageSED());
     //    qDebug("Maximum LSSD is %.3f", simplifier.getMaxLSSD());
@@ -190,13 +193,22 @@ void DotsSimplifier::batchDotsCascade(const QVector<double> &x, const QVector<do
 void DotsSimplifier::batchDotsCascadeByIndex(const QVector<double> &x, const QVector<double> &y, const QVector<double> &t,
                                              QVector<int> &simplifiedIndex, double lssdThreshold)
 {
+    // Invoke the optional method instead.
+    const double DEFAULT_START_THRESHOLD = 100.0;// Start by 100 meters as a threshold by default.
+    batchDotsCascadeByIndexOptions(x, y, t, simplifiedIndex, lssdThreshold, DEFAULT_START_THRESHOLD, 2.0);
+}
+
+void DotsSimplifier::batchDotsCascadeByIndexOptions(const QVector<double> &x, const QVector<double> &y,
+                                                    const QVector<double> &t,
+                                                    QVector<int> &simplifiedIndex, double lssdThreshold,
+                                                    double thStart, double thStep)
+{
     // Clear output.
     simplifiedIndex.clear();
 
     // Construct cascade simplifier.
-    const double DEFAULT_START_THRESHOLD = 100.0;// Start by 100 meters as a threshold by default.
-    double startThreshold = DEFAULT_START_THRESHOLD < lssdThreshold/8.0 ? DEFAULT_START_THRESHOLD : lssdThreshold/8.0;
-    int cascadeCount = qFloor(qLn(lssdThreshold/startThreshold)/qLn(2.0))+1;
+    double startThreshold = thStart < lssdThreshold/8.0 ? thStart : lssdThreshold/8.0;
+    int cascadeCount = qFloor(qLn(lssdThreshold/startThreshold)/qLn(thStep))+1;
     double k = qPow(lssdThreshold/startThreshold, 1.0/(cascadeCount-1));
     double th = startThreshold;
     QObject *root = new QObject();
@@ -238,6 +250,7 @@ void DotsSimplifier::batchDotsCascadeByIndex(const QVector<double> &x, const QVe
                 simplifiedIndex.append(index);
             }
         }
+        //qDebug()<<i<<","<<simplifiedIndex.last();
     }
 //    qDebug("Output count: %d", ox.count());
 //    qDebug("=====> Finished <=======");
@@ -259,6 +272,7 @@ void DotsSimplifier::batchDotsCascadeByIndex(const QVector<double> &x, const QVe
     while (last->readOutputIndex(index))
     {
         simplifiedIndex.append(index);
+        //qDebug()<<(pointCount-1)<<","<<simplifiedIndex.last();
     }
 
     // Destroy the total cascade.

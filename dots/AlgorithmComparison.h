@@ -42,8 +42,11 @@ public:
                            QMap< int, QVector<EvaluationPoint> > &errorToEval, int errorTypes);
 
     static void compareAlgorithms(QString fileName, int algorithmsToCompare, int errorTypesToCompare);
+    static void compareAlgorithmsByFolder(QString folderName, QString suffix, int algorithmsToCompare,
+                                          int errorTypesToCompare);
 
 protected:
+    static void collectFilesOfFolder(QString folderName, QStringList &fileNames, QString suffix);
     static double tryToSimplify(const QVector<double> &x, const QVector<double> &y, const QVector<double> &t,
                               int algorithm, double compressRate,
                               QVector<int> &simplifiedIndex);
@@ -134,6 +137,23 @@ public:
     static const int ALG_SQUISH;
     static const int ALG_MRPA;
     static const int ALG_TS;
+    static const int ALG_OPWTR;
+    static const int ALG_OPW;
+    static const int ALG_DOTS_CASCADE_S_20;
+    static const int ALG_DOTS_CASCADE_S_100;
+    static const int ALG_DOTS_CASCADE_S_500;
+    static const int ALG_DOTS_CASCADE_S_1000;
+    static const int ALG_DOTS_CASCADE_S_5000;
+    static const int ALG_DOTS_CASCADE_S_10000;
+    static const int ALG_DOTS_CASCADE_S_50000;
+    static const int ALG_DOTS_CASCADE_T_1_5;
+    static const int ALG_DOTS_CASCADE_T_2_0;
+    static const int ALG_DOTS_CASCADE_T_3_0;
+    static const int ALG_DOTS_CASCADE_T_4_0;
+    static const int ALG_DOTS_CASCADE_T_5_0;
+    static const int ALG_DOTS_CASCADE_T_6_0;
+    static const int ALG_DOTS_CASCADE_T_7_0;
+
 
 signals:
 

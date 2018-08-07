@@ -16,7 +16,9 @@ SOURCES += main.cpp \
     qcustomplot/qcustomplot.cpp \
     DouglasPeuckerBatchSimplifier.cpp \
     SquishBatchSimplifier.cpp \
-    AlgorithmComparison.cpp
+    AlgorithmComparison.cpp \
+    OpwTrBatchSimplifier.cpp \
+    OpwBatchSimplifier.cpp
 
 HEADERS += \
     DotsSimplifier.h \
@@ -28,7 +30,9 @@ HEADERS += \
     psimpl/psimpl.h \
     DouglasPeuckerBatchSimplifier.h \
     SquishBatchSimplifier.h \
-    AlgorithmComparison.h
+    AlgorithmComparison.h \
+    OpwTrBatchSimplifier.h \
+    OpwBatchSimplifier.h
 
 FORMS += \
     mainwindow.ui
